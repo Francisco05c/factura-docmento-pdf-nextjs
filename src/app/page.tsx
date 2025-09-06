@@ -19,8 +19,18 @@ function styleContent(textContent: string | null): string {
 
 const sanitizeFilename = (filename: string | null, defaultName: string) => {
     if (!filename) return defaultName;
-    const sanitized = filename.replace(/[\\/:*?"<>|]/g, '').trim();
+    const sanitized = filename.replace(/[\/:*?"<>|]/g, '').trim();
     return sanitized ? (sanitized.endsWith('.pdf') ? sanitized : `${sanitized}.pdf`) : defaultName;
+};
+
+const downloadFile = (blob: Blob, filename: string) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
 };
 
 interface TableRow { [key: string]: string; }
@@ -53,8 +63,8 @@ const InvoiceContent = () => {
     const [printDate, setPrintDate] = useState('');
     const [footerNota, setFooterNota] = useState('');
 
-    // --- PDF Sharing Logic ---
-    const iniciarProcesoDeCompartir = useCallback(async () => {
+    // --- PDF Sharing/Downloading Logic ---
+    const handleShareOrDownload = useCallback(async () => {
         setLoading(true);
         try {
             const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
@@ -72,24 +82,29 @@ const InvoiceContent = () => {
             const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
             const pdfFile = new File([blob], pdfFilename, { type: 'application/pdf' });
 
+            // Try to share first
             if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
-                await navigator.share({
-                    title: `Factura: ${pdfFilename}`,
-                    text: `Adjunto se encuentra la factura ${pdfFilename}`,
-                    files: [pdfFile],
-                });
+                try {
+                    await navigator.share({
+                        title: `Factura: ${pdfFilename}`,
+                        text: `Adjunto se encuentra la factura ${pdfFilename}`,
+                        files: [pdfFile],
+                    });
+                } catch (error) {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        console.log('Share action cancelled by user.');
+                    } else {
+                        console.warn('Share failed, falling back to download:', error);
+                        downloadFile(blob, pdfFilename);
+                    }
+                }
             } else {
                 // Fallback for browsers that don't support Web Share API
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = pdfFilename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
+                console.log('Web Share API not supported, downloading file.');
+                downloadFile(blob, pdfFilename);
             }
         } catch (error) {
-            console.error("Error en el proceso de compartir:", error);
+            console.error("Error in share/download process:", error);
             alert(error instanceof Error ? error.message : String(error));
         } finally {
             setLoading(false);
@@ -166,10 +181,10 @@ const InvoiceContent = () => {
         // Auto-share trigger
         if (searchParams.get('compartir') === 'true' && !shareTriggered) {
             setShareTriggered(true);
-            iniciarProcesoDeCompartir();
+            handleShareOrDownload();
         }
 
-    }, [searchParams, shareTriggered, iniciarProcesoDeCompartir]);
+    }, [searchParams, shareTriggered, handleShareOrDownload]);
 
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';
@@ -243,8 +258,8 @@ const InvoiceContent = () => {
             </div>
 
             <div className="button-container no-print">
-                <button id="share-pdf-btn" onClick={iniciarProcesoDeCompartir} disabled={loading}>
-                    {loading ? 'Generando PDF...' : 'Compartir como PDF'}
+                <button id="share-pdf-btn" onClick={handleShareOrDownload} disabled={loading}>
+                    {loading ? 'Generando PDF...' : 'Compartir / Descargar PDF'}
                 </button>
             </div>
 
