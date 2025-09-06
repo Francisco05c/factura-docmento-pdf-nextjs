@@ -179,7 +179,8 @@ const InvoiceContent = () => {
         }
 
         // Auto-share trigger
-        if (searchParams.get('compartir') === 'true' && !shareTriggered) {
+        const isPrinting = searchParams.get('isPrinting') === 'true';
+        if (searchParams.get('compartir') === 'true' && !shareTriggered && !isPrinting) {
             setShareTriggered(true);
             handleShareOrDownload();
         }

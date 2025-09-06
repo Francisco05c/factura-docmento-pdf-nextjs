@@ -15,10 +15,15 @@ const sanitizeFilename = (filename: string | null, defaultName: string) => {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
+  // Create a new URLSearchParams object for modification
+  const puppeteerParams = new URLSearchParams(searchParams);
+  puppeteerParams.delete('compartir'); // Remove the share trigger to prevent loops
+  puppeteerParams.set('isPrinting', 'true'); // Add a flag for the frontend to know it's a print job
+
   // Reconstruct the frontend URL from the incoming request
   const host = request.headers.get('host');
   const protocol = request.headers.get('x-forwarded-proto') || 'http';
-  const frontendUrl = `${protocol}://${host}/?${searchParams.toString()}`;
+  const frontendUrl = `${protocol}://${host}/?${puppeteerParams.toString()}`;
 
   // Sanitize the filename
   const desiredFilename = searchParams.get('filename');
