@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, Suspense, useCallback } from 'react';
+import React, { useEffect, useState, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 // --- Helper Functions ---
@@ -38,7 +38,7 @@ interface TableRow { [key: string]: string; }
 const InvoiceContent = () => {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
-    const [shareTriggered, setShareTriggered] = useState(false);
+    const shareTriggered = useRef(false); // Use useRef to prevent re-triggering on dev re-mount
 
     // --- State Variables ---
     const [theme, setTheme] = useState('');
@@ -180,12 +180,12 @@ const InvoiceContent = () => {
 
         // Auto-share trigger
         const isPrinting = searchParams.get('isPrinting') === 'true';
-        if (searchParams.get('compartir') === 'true' && !shareTriggered && !isPrinting) {
-            setShareTriggered(true);
+        if (searchParams.get('compartir') === 'true' && !shareTriggered.current && !isPrinting) {
+            shareTriggered.current = true;
             handleShareOrDownload();
         }
 
-    }, [searchParams, shareTriggered, handleShareOrDownload]);
+    }, [searchParams, handleShareOrDownload]);
 
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';
