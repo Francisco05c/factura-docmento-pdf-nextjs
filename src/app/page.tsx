@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 // --- Helper Functions ---
@@ -54,7 +54,7 @@ const InvoiceContent = () => {
     const [footerNota, setFooterNota] = useState('');
 
     // --- PDF Sharing Logic ---
-    const iniciarProcesoDeCompartir = async () => {
+    const iniciarProcesoDeCompartir = useCallback(async () => {
         setLoading(true);
         try {
             const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
@@ -94,7 +94,7 @@ const InvoiceContent = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchParams]);
 
     useEffect(() => {
         // Populate invoice data from URL params
@@ -169,7 +169,7 @@ const InvoiceContent = () => {
             iniciarProcesoDeCompartir();
         }
 
-    }, [searchParams, shareTriggered]);
+    }, [searchParams, shareTriggered, iniciarProcesoDeCompartir]);
 
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';

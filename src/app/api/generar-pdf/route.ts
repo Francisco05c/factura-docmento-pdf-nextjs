@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     browser = await pptr.launch(isVercel ? {
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     } : { 
       headless: true, 
       args: puppeteer.defaultArgs()
