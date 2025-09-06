@@ -38,7 +38,8 @@ interface TableRow { [key: string]: string; }
 const InvoiceContent = () => {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
-    const shareTriggered = useRef(false); // Use useRef to prevent re-triggering on dev re-mount
+    const [dataLoaded, setDataLoaded] = useState(false);
+    const shareTriggered = useRef(false);
 
     // --- State Variables ---
     const [theme, setTheme] = useState('');
@@ -111,8 +112,9 @@ const InvoiceContent = () => {
         }
     }, [searchParams]);
 
+    // Effect to load data from URL params
     useEffect(() => {
-        // Populate invoice data from URL params
+        setDataLoaded(false);
         const themeParam = searchParams.get('tema');
         document.body.className = '';
         if (themeParam === 'PurpuraGrad') document.body.classList.add('theme-purpura');
@@ -178,14 +180,17 @@ const InvoiceContent = () => {
             setShowPrintFooter(false);
         }
 
-        // Auto-share trigger
+        setDataLoaded(true); // Signal that data is loaded
+    }, [searchParams]);
+
+    // Effect for auto-sharing, triggers after data is loaded
+    useEffect(() => {
         const isPrinting = searchParams.get('isPrinting') === 'true';
-        if (searchParams.get('compartir') === 'true' && !shareTriggered.current && !isPrinting) {
+        if (dataLoaded && searchParams.get('compartir') === 'true' && !isPrinting && !shareTriggered.current) {
             shareTriggered.current = true;
             handleShareOrDownload();
         }
-
-    }, [searchParams, handleShareOrDownload]);
+    }, [dataLoaded, searchParams, handleShareOrDownload]);
 
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';
