@@ -1,26 +1,507 @@
-@import "tailwindcss";
+/* --- Estilos Base (Default Theme) --- */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0; /* Padding gestionado por temas o impresión */
+            color: #333;
+            background-color: #f8f9fa; /* Default BG */
+            transition: background-color 0.3s ease;
+            min-height: 100vh; /* Asegura que el body ocupe al menos la altura de la ventana */
+        }
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+        .invoice-wrapper { /* Contenedor para padding general en pantalla */
+             padding: 20px;
+        }
+
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto; /* Centrado dentro del wrapper */
+            border: 1px solid #ddd; /* Default Border */
+            padding: 30px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); /* Default Shadow */
+            background-color: #fff; /* Default BG */
+            position: relative;
+            overflow: hidden; /* Para contener gradientes ::before/::after y decoraciones de pantalla */
+            transition: border 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* --- Clases Utilitarias --- */
+        .hidden { display: none !important; } /* Para JS, oculta elementos */
+        .print-only { display: none; } /* Oculto en pantalla, visible solo en impresión vía @media print */
+        .screen-only-decoration { display: none; } /* Decoraciones específicas de pantalla, ocultas por defecto y en impresión */
+        
+        /* --- Estructura: Encabezado Reorganizado --- */
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start; /* Alinea los items al inicio del eje transversal */
+            margin-bottom: 25px;
+            min-height: 60px; /* Altura mínima para acomodar logos y texto */
+            position: relative; /* Para el z-index y posicionamiento de hijos absolutos si los hubiera */
+            z-index: 1; /* Para asegurar que esté sobre cualquier pseudo-elemento de fondo del .invoice-container */
+            gap: 20px; /* Espacio entre .header-left y .header-right */
+        }
+        .header-left {
+            display: flex;
+            align-items: center; /* Centra verticalmente los logos si hay más de uno o texto */
+            gap: 15px; /* Espacio entre logos si hay múltiples */
+            flex-shrink: 0; /* Evita que esta sección se encoja si .header-right es muy largo */
+        }
+        .header-right {
+            text-align: right; /* Alinea el texto a la derecha */
+            flex-shrink: 1; /* Permite que esta sección se encoja si es necesario */
+            padding-top: 0px; /* Ajustado, antes 5px */
+        }
+        .header-right .detail-line {
+            margin-bottom: 0px; /* Ajustado, antes 3px */
+            font-size: 0.9em; /* Tamaño de fuente aumentado */
+        }
+        .header-right .detail-line strong { /* Estilo base para strong en header-right */
+            color: #333; /* Color base para el texto en negrita, puede ser sobrescrito por temas */
+            transition: color 0.3s ease;
+            /* font-weight: bold; es inherente a strong */
+        }
+        .header-right .detail-line:last-child { margin-bottom: 0; } /* Evita margen extra en la última línea */
+
+        /* --- Estructura: Logos --- */
+        .logo { display: flex; align-items: center; }
+        .logo img {
+            max-height: 65px; /* Altura máxima del logo */
+            object-fit: contain; /* Asegura que el logo se escale bien sin distorsionarse */
+            display: block; /* Evita espacio extra debajo de la imagen */
+        }
+        .logo:empty { display: none; } /* Oculta el contenedor del logo si no se carga ninguna imagen */
+        
+
+        /* --- Estructura: Detalles De/Para --- */
+        .sender-receiver-details {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap; /* Permite que las secciones De/Para se coloquen una debajo de la otra en pantallas pequeñas */
+            gap: 20px; /* Espacio entre las secciones De y Para */
+            position: relative;
+            z-index: 1;
+            font-size: 0.8 /* Tamaño de fuente para esta sección */
+        }
+        .info-section { flex: 1; min-width: 250px; } /* Cada sección toma espacio disponible, con un mínimo */
+        
+        /* Estilo base para dynamic-label */
+        strong.dynamic-label { /* Estilo para etiquetas dinámicas generadas por JS (ej. "De:", "Cliente:", "Factura Titulo:") */
+            display: inline; 
+            margin-bottom: 0; 
+            font-weight: bold; 
+            /* El color y la transición serán manejados por reglas de tema más específicas o heredadas */
+        }
+        
+        /* Colores específicos de temas para las etiquetas dinámicas */
+        .theme-purpura .info-section strong.dynamic-label,
+        .theme-purpura .header-right strong { color: #8e24aa; transition: color 0.3s ease; }
+        .theme-azul .info-section strong.dynamic-label,
+        .theme-azul .header-right strong { color: #0d47a1; transition: color 0.3s ease;} 
+
+
+        .info-section span { white-space: pre-wrap; display: block; } /* Mantiene saltos de línea y espacios del contenido */
+        .info-section span#de, .info-section span#para {
+            display: block; 
+        }
+
+
+        /* --- Estructura: Tabla --- */
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse; /* Une los bordes de las celdas */
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 1;
+        }
+        .invoice-table th, .invoice-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #ddd; /* Línea divisoria entre filas */
+            text-align: right; /* Alineación por defecto para celdas (numéricas) */
+            vertical-align: top; /* Alineación vertical al inicio */
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+            font-size: 1em;
+        }
+        .invoice-table th { /* Cabeceras de la tabla */
+            background-color: #f8f8f8; 
+            font-weight: bold;
+            color: #333; 
+        }
+        /* Clases utilitarias para alineación de texto */
+        .invoice-table th.text-left, .invoice-table td.text-left { text-align: left !important; } 
+        .invoice-table th.text-right, .invoice-table td.text-right { text-align: right !important; } 
+
+        /* --- Estructura: Resumen --- */
+        .invoice-summary {
+            width: 300px; 
+            float: right; 
+            margin-left: 20px; 
+            position: relative; 
+            z-index: 1;
+        }
+        .invoice-summary .summary-line {
+            display: flex;
+            justify-content: space-between; /* Etiqueta a la izq, valor a la der */
+            margin-bottom: 5px;
+            padding: 2px 0;
+            font-size: 0.8em;
+        }
+        .invoice-summary .total-line { /* Línea del total general */
+            font-weight: bold;
+            font-size: 1.1em; /* Más grande para destacar */
+            border-top: 2px solid #333; 
+            padding-top: 8px;
+            margin-top: 5px;
+            color: #333; 
+            transition: border-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- Estructura: Notas --- */
+        /* --- Estructura: Resumen (para float layout) --- */
+        .invoice-summary {
+            width: 300px; 
+            float: right; 
+            margin-left: 20px; /* Espacio entre la nota y el resumen */
+            position: relative; 
+            z-index: 1;
+            /* Mantiene los tamaños de fuente originales para el resumen */
+            /* font-size: 0.8em; /* Asegura que el tamaño base sea el mismo que el de la nota */
+        }
+        .invoice-summary .summary-line {
+            display: flex;
+            justify-content: space-between; 
+            margin-bottom: 5px;
+            padding: 2px 0;
+            /* font-size: 1.2em; Hereda del padre .invoice-summary o se mantiene si es diferente */
+        }
+        .invoice-summary .total-line { 
+            font-weight: bold;
+            font-size: 1.1em; /* Tamaño específico para la línea total */
+            border-top: 2px solid #333; 
+            padding-top: 8px;
+            margin-top: 5px;
+            color: #333; 
+            transition: border-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- Estructura: Notas (Simplificado para asegurar el flujo) --- */
+        .invoice-note {
+            /* Se eliminan: overflow: hidden; display: flow-root; */
+            /* Estas propiedades creaban un nuevo BFC que impedía el flujo deseado por debajo. */
+            border-top: 1px solid #eee; 
+            padding-top: 15px;
+            position: relative; /* Solo para z-index si fuera necesario, no para el layout de flujo */
+            z-index: 1;
+            /* El font-size se manejará para que coincida con el texto general si no es el del resumen */
+            font-size: 0.8em; /* Coincide con .invoice-summary para consistencia inicial */
+        }
+        .invoice-note strong { 
+            display: inline; 
+            margin-right: 5px; 
+            font-style: normal; 
+            font-weight: bold; 
+        }
+        .invoice-note span#nota { 
+            display: inline; 
+            font-style: italic; 
+            white-space: pre-wrap;
+            overflow-wrap: break-word; 
+            word-break: break-word;
+        }
+        
+        /* --- Contenedor para Resumen y Notas (para float layout) --- */
+        .summary-and-notes-container {
+            margin-top: 30px; 
+            position: relative; 
+            z-index: 1;
+        }
+        /* Clearfix para .summary-and-notes-container para que contenga el float */
+        .summary-and-notes-container::after {
+            content: "";
+            clear: both;
+            display: table;
+        }    
+
+        /* --- Estructura: Pie de Página (Impresión Genérico) --- */
+        .print-footer {
+            display: none; /* Oculto por defecto, JS y @media print controlan visibilidad */
+            padding: 10px ;
+            position: relative;
+            max-width: 100%;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8em;
+            background-color: #fff; 
+            color: #333; 
+            border-top: 1px solid #ddd; 
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        .print-footer p { margin: 2px 0; } /* Párrafos dentro del pie de página */
+
+        /* === TEMA: Púrpura Gradiente === */
+        body.theme-purpura { background-color: #f3e5f5; }
+        .theme-purpura .invoice-container {
+            border: 1px solid #ab47bc;
+            background-color: #fff;
+            box-shadow: 0 0 20px rgba(171, 71, 188, 0.2);
+            border-radius: 8px;
+        }
+        .theme-purpura .invoice-container::before { /* Decoración gradiente superior */
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px;
+            background: linear-gradient(to bottom, rgba(206, 147, 216, 0.6), rgba(206, 147, 216, 0));
+            border-radius: 8px 8px 0 0; z-index: 0; pointer-events: none;
+        }
+        .theme-purpura .invoice-container::after { /* Decoración gradiente inferior */
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50px;
+            background: linear-gradient(to top, rgba(206, 147, 216, 0.7), rgba(206, 147, 216, 0));
+            border-radius: 0 0 8px 8px; z-index: 0; opacity: 0.8; pointer-events: none;
+        }
+        /* Esta regla general ya cubre .header-right strong y .info-section strong (incluyendo los .dynamic-label) */
+        .theme-purpura .header-right strong,
+        .theme-purpura .info-section strong { color: #8e24aa; transition: color 0.3s ease; } 
+        .theme-purpura .invoice-table th {
+            background-color: #e1bee7; color: #8e24aa; border-bottom: 1px solid #ce93d8;
+        }
+        .theme-purpura .invoice-table td { border-bottom: 1px solid #f3e5f5; }
+        .theme-purpura .invoice-summary .total-line { border-top: 2px solid #ab47bc; color: #8e24aa; }
+        .theme-purpura .print-footer { /* Estilos de pie de página para impresión en tema Púrpura */
+            content: '';
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 10px; /* Altura del degradado */
+            background: linear-gradient(to bottom, rgba(142, 36, 170, 0.5), rgba(142, 36, 170, 0)); /* Púrpura (#8e24aa) a transparente */
+            pointer-events: none; /* Para que no interfiera con el clic */
+        }
+        .theme-purpura .print-footer p { color: #8e24aa; font-weight: bold; }
+
+        /* === TEMA: Azul Abstracto Pro === */
+        body.theme-azul { background-color: #eef5ff; }
+        .theme-azul .invoice-container {
+            border: none; /* Sin borde explícito, usa sombra */
+            box-shadow: 0 4px 15px rgba(0, 50, 150, 0.15);
+            background-color: #fff;
+        }
+        /* Esta regla general ya cubre .header-right strong y .info-section strong (incluyendo los .dynamic-label) */
+        .theme-azul .header-right strong,
+        .theme-azul .info-section strong { color: #0d47a1; transition: color 0.3s ease;} 
+        .theme-azul .invoice-table th {
+            background-color: #1e88e5; color: #ffffff; border-bottom: 1px solid #1565c0;
+        }
+        .theme-azul .invoice-table td { border-bottom: 1px solid #bbdefb; }
+        .theme-azul .invoice-summary .total-line { border-top: 2px solid #0d47a1; color: #0d47a1; }
+        .theme-azul .print-footer { /* Estilos de pie de página para impresión en tema Azul */
+             background-color: #eef5ff; color: #0d47a1; border-top: 1px solid #42a5f5;
+        }
+        .theme-azul .print-footer p { color: #0d47a1; }
+
+
+        /* === TEMA: Azul Abstracto Pro HF (Decoraciones Header/Footer Fijos para Impresión) === */
+        /* Estilos base para los contenedores de decoración de header/footer de impresión */
+        #print-header-azul, #print-footer-azul {
+            height: 25px; background-color: #0d47a1; width: 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; /* Asegura que los colores de fondo se impriman */
+            /* position y z-index se manejan en @media print o de forma más específica */
+        }
+        /* Posicionamiento específico para el header de impresión (antes de @media print) */
+        #print-header-azul { 
+            top: 0; /* Relevante si se hace fixed o absolute */
+        } 
+        /* Posicionamiento específico para el footer de impresión (fijo por defecto) */
+        #print-footer-azul { 
+            bottom: 0; position: fixed; left: 0; z-index: 1000; 
+        }
+        /* Estilos para las formas decorativas dentro del header/footer de impresión */
+        #print-header-azul .deco-circle, #print-footer-azul .deco-skew {
+            top: 50%; border: 4px solid #fff; z-index: 1001; /* Sobre la barra de fondo */
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        
+        #print-header-azul .deco-circle { /* Círculo en el header de impresión */
+            position: absolute; /* Se posiciona respecto a #print-header-azul */
+            transform: translateY(-50%); left: 30px; width: 35px; height: 35px;
+            background-color: #42a5f5; border-radius: 50%; 
+        }
+        #print-footer-azul .deco-skew { /* Forma inclinada en el footer de impresión */
+            position: absolute; /* Se posiciona respecto a #print-footer-azul */
+            transform: translateY(-50%) skew(-20deg); right: 30px; width: 60px; height: 20px;
+            background-color: #1e88e5; 
+        }
+
+        /* Decoraciones equivalentes para PANTALLA (Tema Azul) */
+        #screen-header-azul, #screen-footer-azul {
+            height: 25px; background-color: #0d47a1; 
+            /* Márgenes negativos para extenderse al borde del .invoice-container si este tiene padding */
+            margin-left: -30px; margin-right: -30px;
+            position: relative; overflow: hidden; /* Contiene las decoraciones internas */
+        }
+        #screen-header-azul { /* Barra decorativa superior en pantalla */
+            margin-top: -30px; 
+            margin-bottom: 20px; /* Espacio después de la barra */
+        }
+        #screen-footer-azul{ /* Barra decorativa inferior en pantalla */
+            margin-bottom: -30px; 
+            margin-top: 20px; /* Espacio antes de la barra */
+        }
+        #screen-header-azul .deco-circle, #screen-footer-azul .deco-skew {
+             position: absolute; top: 50%; border: 4px solid #fff; z-index: 1;
+        }
+        #screen-header-azul .deco-circle {
+            transform: translateY(-50%); left: 30px; width: 35px; height: 35px;
+            background-color: #42a5f5; border-radius: 50%;
+        }
+        #screen-footer-azul .deco-skew {
+            transform: translateY(-50%) skew(-20deg); right: 30px; width: 60px; height: 20px;
+            background-color: #1e88e5;
+        }
+        /* Activa la visibilidad de las decoraciones de pantalla cuando se usa el tema HF */
+        body.use-hf-azul .screen-only-decoration {
+             display: block;
+        }
+
+
+        /* --- Estilos de Impresión --- */
+        @media print {
+            body { /* Reseteos básicos para impresión */
+                margin: 0px !important;
+                padding: 0px !important; 
+                color: #000 !important; /* Texto negro para legibilidad */
+                background-color: #fff !important; /* Fondo blanco */
+                -webkit-print-color-adjust: exact; print-color-adjust: exact; /* Fuerza la impresión de colores y fondos */
+            }
+            /* Fondos específicos de tema para el body en impresión, desactivados para mantener el fondo blanco. */
+            
+            /* Ajustes para el tema con Header/Footer fijos en impresión */
+            body.use-hf-azul {
+                 padding-top: 0 !important; /* El header en flujo ocupa su propio espacio inicial */
+                 padding-bottom: 35px !important; /* Espacio para el footer fijo */
+            }
+
+            .invoice-wrapper {
+                padding: 0 !important; /* ANULAR el padding del wrapper para impresión si quieres control total con @page */
+                                      /* O dejarlo si quieres ese "marco" de 20px */
+            }
+
+            .invoice-container { /* Contenedor principal de la factura en impresión */
+                max-width: 100%; /* Ocupa todo el ancho disponible */
+                padding: 20px !important; 
+                margin: 0 !important;
+
+                background-color: #fff !important; /* Fondo blanco para el contenido de la factura */
+            }
+
+            body.theme-azul.use-hf-azul .invoice-container {
+                margin: 0 !important; 
+            }
+
+            .print-only { display: block !important; } /* Muestra elementos solo para impresión */
+            .print-footer.hidden { display: none !important; } /* Si el pie genérico tiene .hidden, se oculta */
+
+            .screen-only-decoration { display: none !important; } /* Oculta decoraciones de pantalla */
+            .no-print { display: none !important; } /* Oculta elementos marcados para no imprimir */
+            * { box-shadow: none !important; color-adjust: exact !important; } /* Quita sombras y fuerza colores */
+            
+            thead { display: table-header-group !important; } /* Repite cabeceras de tabla en cada página */
+            /* Evita saltos de página dentro de estos elementos */
+            tbody tr, .invoice-summary, .invoice-note { page-break-inside: avoid !important; } 
+
+            /* Visibilidad y posicionamiento del Header/Footer del tema Azul Abstracto Pro HF en impresión */
+            body.use-hf-azul #print-header-azul {
+                display: flex !important; /* Asegura que sea visible y flex container */
+                position: relative !important; /* Para que esté en el flujo normal y solo en la primera página */
+                z-index: 1; /* Sobre el contenido si hay solapamientos */
+            }
+            /*body.use-hf-azul #print-footer-azul {
+                /*display: flex !important;*/ /* Asegura que sea visible y flex container */
+                /*position: fixed !important;*/ /* Fijo para que se repita en todas las páginas */
+                /*bottom: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                /*z-index: 1000 !important;*/ /* Por encima de casi todo */
+            /*}*/
+            /* Oculta el header/footer del tema HF si no se usa la clase .use-hf-azul */
+            body:not(.use-hf-azul) #print-header-azul,
+            body:not(.use-hf-azul) #print-footer-azul {
+                display: none !important;
+            }
+        }
+
+        /* --- Reglas @page --- */
+        @page { /* Define márgenes de la página para impresión */
+             padding: 0.8cm 1cm 1cm 1cm; /* Padding interno de la página antes del contenido del body */
+             margin: 0cm 0cm 0cm 0cm; /* Márgenes externos de la página (generalmente 0 si se controla con padding) */
+        }
+
+/* --- Share Button and Loading Overlay Styles --- */
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+#share-pdf-btn {
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #0d47a1; /* Matching blue theme */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+#share-pdf-btn:hover {
+    background-color: #1565c0;
+}
+
+#share-pdf-btn:disabled {
+    background-color: #9e9e9e;
+    cursor: not-allowed;
+}
+
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* High z-index to be on top of everything */
+    color: #0d47a1;
+}
+
+#loading-overlay.hidden {
+    display: none;
+}
+
+#loading-overlay p {
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.spinner {
+    border: 8px solid #f3f3f3; /* Light grey */
+    border-top: 8px solid #0d47a1; /* Blue */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
