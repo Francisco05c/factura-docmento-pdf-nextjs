@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import React, { useEffect, useState, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 
@@ -19,7 +19,7 @@ function styleContent(textContent: string | null): string {
 
 const sanitizeFilename = (filename: string | null, defaultName: string) => {
     if (!filename) return defaultName;
-    const sanitized = filename.replace(/[\/:*?"<>|]/g, '').trim();
+    const sanitized = filename.replace(/[\\/:*?"<>|]/g, '').trim();
     return sanitized ? (sanitized.endsWith('.pdf') ? sanitized : `${sanitized}.pdf`) : defaultName;
 };
 
@@ -266,7 +266,7 @@ const InvoiceContent = () => {
                         </tbody>
                     </table>
                     <div className="summary-and-notes-container">
-                                                <div className="invoice-summary">
+                        <div className="invoice-summary">
                             {sumDataLines.map((line, index) => (
                                 <div key={index} className="summary-line">
                                     <span>{line.label}</span>
