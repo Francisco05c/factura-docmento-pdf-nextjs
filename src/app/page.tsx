@@ -38,7 +38,6 @@ interface TableRow { [key: string]: string; }
 const InvoiceContent = () => {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
-    const [dataLoaded, setDataLoaded] = useState(false);
     const [loadingAction, setLoadingAction] = useState<'download' | 'share' | null>(null);
     const [isShareSupported, setIsShareSupported] = useState(false);
 
@@ -69,7 +68,7 @@ const InvoiceContent = () => {
 
     // --- PDF Downloading & Sharing Logic ---
     useEffect(() => {
-        if (typeof window !== "undefined" && navigator.share) {
+        if (typeof window !== "undefined" && "share" in navigator) {
             setIsShareSupported(true);
         }
     }, []);
@@ -136,10 +135,14 @@ const InvoiceContent = () => {
                 alert('Este navegador no admite compartir archivos. Intenta descargar el archivo y compartirlo manualmente.');
             }
 
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error in share process:", error);
-            if (error.name !== 'AbortError') {
-                alert(error instanceof Error ? error.message : String(error));
+            if (error instanceof Error) {
+                if (error.name !== 'AbortError') {
+                    alert(error.message);
+                }
+            } else {
+                alert(String(error));
             }
         } finally {
             setLoading(false);
@@ -149,7 +152,6 @@ const InvoiceContent = () => {
 
     // Effect to load data from URL params
     useEffect(() => {
-        setDataLoaded(false);
         const themeParam = searchParams.get('tema');
         document.body.className = '';
         if (themeParam === 'PurpuraGrad') document.body.classList.add('theme-purpura');
@@ -228,7 +230,7 @@ const InvoiceContent = () => {
         if (notaP) {
             setShowPrintFooter(true);
             const facturaLines = (searchParams.get('Factura') || '').split('\n');
-            const clienteLines = (search_params.get('Cliente') || '').split('\n');
+            const clienteLines = (searchParams.get('Cliente') || '').split('\n');
             const infoParts: string[] = [];
             if (facturaLines.length > 0 && facturaLines[0].trim()) infoParts.push(facturaLines[0].trim());
             if (clienteLines.length > 0 && clienteLines[0].trim()) infoParts.push(clienteLines[0].trim());
@@ -242,8 +244,6 @@ const InvoiceContent = () => {
         } else {
             setShowPrintFooter(false);
         }
-
-        setDataLoaded(true); // Signal that data is loaded
     }, [searchParams]);
 
     const getColumnAlignment = (index: number, header: string) => {
