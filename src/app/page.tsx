@@ -67,7 +67,37 @@ const InvoiceContent = () => {
     const [totalDataLines, setTotalDataLines] = useState<{label: string, value: string}[]>([]);
 
     // --- PDF Sharing/Downloading Logic ---
-    const handleShareOrDownload = useCallback(async () => {
+    const handleDownload = useCallback(async () => {
+        setLoading(true);
+        try {
+            const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
+            const response = await fetch(apiUrl);
+
+            if (!response.ok) {
+                throw new Error(`Error al generar el PDF: ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            if (blob.type !== 'application/pdf') {
+                throw new Error('La respuesta recibida no es un PDF.');
+            }
+
+            const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
+            downloadFile(blob, pdfFilename);
+
+        } catch (error) {
+            console.error("Error in download process:", error);
+            alert(error instanceof Error ? error.message : String(error));
+        } finally {
+            setLoading(false);
+        }
+    }, [searchParams]);
+
+    const handleShare = useCallback(async () => {
+        if (window.location.protocol !== 'https:') {
+            alert('La función de compartir puede no funcionar correctamente en un entorno local (HTTP). Para una funcionalidad completa, por favor, acceda a esta página a través de HTTPS.');
+            return;
+        }
         setLoading(true);
         try {
             const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
@@ -85,7 +115,6 @@ const InvoiceContent = () => {
             const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
             const pdfFile = new File([blob], pdfFilename, { type: 'application/pdf' });
 
-            // Try to share first
             if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
                 try {
                     await navigator.share({
@@ -97,17 +126,15 @@ const InvoiceContent = () => {
                     if (error instanceof DOMException && error.name === 'AbortError') {
                         console.log('Share action cancelled by user.');
                     } else {
-                        console.warn('Share failed, falling back to download:', error);
-                        downloadFile(blob, pdfFilename);
+                        console.warn('Share failed:', error);
+                        // No fallback to download here
                     }
                 }
             } else {
-                // Fallback for browsers that don't support Web Share API
-                console.log('Web Share API not supported, downloading file.');
-                downloadFile(blob, pdfFilename);
+                alert('La función de compartir no es compatible con este navegador.');
             }
         } catch (error) {
-            console.error("Error in share/download process:", error);
+            console.error("Error in share process:", error);
             alert(error instanceof Error ? error.message : String(error));
         } finally {
             setLoading(false);
@@ -213,15 +240,6 @@ const InvoiceContent = () => {
         setDataLoaded(true); // Signal that data is loaded
     }, [searchParams]);
 
-    // Effect for auto-sharing, triggers after data is loaded
-    useEffect(() => {
-        const isPrinting = searchParams.get('isPrinting') === 'true';
-        if (dataLoaded && searchParams.get('compartir') === 'true' && !isPrinting && !shareTriggered.current) {
-            shareTriggered.current = true;
-            handleShareOrDownload();
-        }
-    }, [dataLoaded, searchParams, handleShareOrDownload]);
-
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';
         if (index === tableHeaders.length - 1) return 'text-right';
@@ -306,8 +324,11 @@ const InvoiceContent = () => {
             </div>
 
             <div className="button-container no-print">
-                <button id="share-pdf-btn" onClick={handleShareOrDownload} disabled={loading}>
-                    {loading ? 'Generando PDF...' : 'Compartir / Descargar PDF'}
+                <button id="share-pdf-btn" onClick={handleShare} disabled={loading}>
+                    {loading ? 'Generando...' : 'Compartir'}
+                </button>
+                <button id="download-pdf-btn" onClick={handleDownload} disabled={loading}>
+                    {loading ? 'Generando...' : 'Descargar'}
                 </button>
             </div>
 
