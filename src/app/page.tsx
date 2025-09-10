@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, Suspense, useCallback, useRef } from 'react';
+import React, { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 // --- Helper Functions ---
@@ -39,7 +39,8 @@ const InvoiceContent = () => {
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(false);
     const [dataLoaded, setDataLoaded] = useState(false);
-    const shareTriggered = useRef(false);
+    const [loadingAction, setLoadingAction] = useState<'download' | 'share' | null>(null);
+    const [isShareSupported, setIsShareSupported] = useState(false);
 
     // --- State Variables ---
     const [theme, setTheme] = useState('');
@@ -66,9 +67,16 @@ const InvoiceContent = () => {
     const [sumDataLines, setSumDataLines] = useState<{label: string, value: string}[]>([]);
     const [totalDataLines, setTotalDataLines] = useState<{label: string, value: string}[]>([]);
 
-    // --- PDF Sharing/Downloading Logic ---
+    // --- PDF Downloading & Sharing Logic ---
+    useEffect(() => {
+        if (typeof window !== "undefined" && navigator.share) {
+            setIsShareSupported(true);
+        }
+    }, []);
+
     const handleDownload = useCallback(async () => {
         setLoading(true);
+        setLoadingAction('download');
         try {
             const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
             const response = await fetch(apiUrl);
@@ -90,15 +98,18 @@ const InvoiceContent = () => {
             alert(error instanceof Error ? error.message : String(error));
         } finally {
             setLoading(false);
+            setLoadingAction(null);
         }
     }, [searchParams]);
 
     const handleShare = useCallback(async () => {
-        if (window.location.protocol !== 'https:') {
-            alert('La función de compartir puede no funcionar correctamente en un entorno local (HTTP). Para una funcionalidad completa, por favor, acceda a esta página a través de HTTPS.');
+        if (!navigator.share) {
+            alert('La función de compartir no está disponible en este navegador.');
             return;
         }
+
         setLoading(true);
+        setLoadingAction('share');
         try {
             const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
             const response = await fetch(apiUrl);
@@ -113,31 +124,26 @@ const InvoiceContent = () => {
             }
 
             const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
-            const pdfFile = new File([blob], pdfFilename, { type: 'application/pdf' });
+            const file = new File([blob], pdfFilename, { type: 'application/pdf' });
 
-            if (navigator.share && navigator.canShare({ files: [pdfFile] })) {
-                try {
-                    await navigator.share({
-                        title: `Factura: ${pdfFilename}`,
-                        text: `Adjunto se encuentra la factura ${pdfFilename}`,
-                        files: [pdfFile],
-                    });
-                } catch (error) {
-                    if (error instanceof DOMException && error.name === 'AbortError') {
-                        console.log('Share action cancelled by user.');
-                    } else {
-                        console.warn('Share failed:', error);
-                        // No fallback to download here
-                    }
-                }
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: pdfFilename,
+                    text: `Factura: ${pdfFilename}`,
+                });
             } else {
-                alert('La función de compartir no es compatible con este navegador.');
+                alert('Este navegador no admite compartir archivos. Intenta descargar el archivo y compartirlo manualmente.');
             }
-        } catch (error) {
+
+        } catch (error: any) {
             console.error("Error in share process:", error);
-            alert(error instanceof Error ? error.message : String(error));
+            if (error.name !== 'AbortError') {
+                alert(error instanceof Error ? error.message : String(error));
+            }
         } finally {
             setLoading(false);
+            setLoadingAction(null);
         }
     }, [searchParams]);
 
@@ -222,7 +228,7 @@ const InvoiceContent = () => {
         if (notaP) {
             setShowPrintFooter(true);
             const facturaLines = (searchParams.get('Factura') || '').split('\n');
-            const clienteLines = (searchParams.get('Cliente') || '').split('\n');
+            const clienteLines = (search_params.get('Cliente') || '').split('\n');
             const infoParts: string[] = [];
             if (facturaLines.length > 0 && facturaLines[0].trim()) infoParts.push(facturaLines[0].trim());
             if (clienteLines.length > 0 && clienteLines[0].trim()) infoParts.push(clienteLines[0].trim());
@@ -251,7 +257,7 @@ const InvoiceContent = () => {
         <>
             <div id="loading-overlay" className={loading ? '' : 'hidden'}>
                 <div className="spinner"></div>
-                <p>Generando PDF, por favor espere...</p>
+                <p>{loadingAction === 'share' ? 'Preparando para compartir...' : 'Generando PDF, por favor espere...'}</p>
             </div>
 
             {/* Print-only headers (conditionally rendered by CSS) */}
@@ -324,12 +330,14 @@ const InvoiceContent = () => {
             </div>
 
             <div className="button-container no-print">
-                <button id="share-pdf-btn" onClick={handleShare} disabled={loading}>
-                    {loading ? 'Generando...' : 'Compartir'}
-                </button>
                 <button id="download-pdf-btn" onClick={handleDownload} disabled={loading}>
-                    {loading ? 'Generando...' : 'Descargar'}
+                    {loading && loadingAction === 'download' ? 'Generando...' : 'Descargar'}
                 </button>
+                {isShareSupported && (
+                    <button id="share-pdf-btn" onClick={handleShare} disabled={loading}>
+                        {loading && loadingAction === 'share' ? 'Preparando...' : 'Compartir'}
+                    </button>
+                )}
             </div>
 
             {showPrintFooter && (
