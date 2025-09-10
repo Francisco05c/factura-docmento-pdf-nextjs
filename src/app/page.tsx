@@ -64,6 +64,7 @@ const InvoiceContent = () => {
     const [printDate, setPrintDate] = useState('');
     const [footerNota, setFooterNota] = useState('');
     const [sumDataLines, setSumDataLines] = useState<{label: string, value: string}[]>([]);
+    const [totalDataLines, setTotalDataLines] = useState<{label: string, value: string}[]>([]);
 
     // --- PDF Sharing/Downloading Logic ---
     const handleShareOrDownload = useCallback(async () => {
@@ -151,6 +152,20 @@ const InvoiceContent = () => {
             setSumDataLines([]);
         }
 
+        const totalDataParam = searchParams.get('TotalDataLine');
+        if (totalDataParam) {
+            const lines = totalDataParam.split('\n').map(line => {
+                const parts = line.split(':');
+                return {
+                    label: parts[0] ? parts[0].trim() + ':' : '',
+                    value: parts[1] ? parts[1].trim() : ''
+                };
+            }).filter(line => line.label);
+            setTotalDataLines(lines);
+        } else {
+            setTotalDataLines([]);
+        }
+
         const columnNames = searchParams.getAll('columna');
         setTableHeaders(columnNames);
         if (columnNames.length > 0) {
@@ -234,7 +249,7 @@ const InvoiceContent = () => {
                         </div>
                         <div className="header-right">
                             {facturaContent && <div id="factura-line" className="detail-line" dangerouslySetInnerHTML={{ __html: facturaContent }}></div>}
-                            {fecha && <div id="fecha-line" className="detail-line"><strong>Fecha:</strong> <span id="fecha">{fecha}</span></div>}
+                            {fecha && <div id="fecha-line" className = "detail-line"><strong>Fecha:</strong> <span id="fecha">{fecha}</span></div>}
                             {hora && <div id="hora-line" className="detail-line"><strong>Hora:</strong> <span id="hora">{hora}</span></div>}
                             {formaPago && <div id="forma-pago-line" className="detail-line"><strong>Forma de Pago:</strong> <span id="forma-pago">{formaPago}</span></div>}
                         </div>
@@ -276,7 +291,13 @@ const InvoiceContent = () => {
                             {subtotal && <div id="subtotal-line" className="summary-line"><span>Subtotal:</span><span id="subtotal">{subtotal}</span></div>}
                             {descuento && <div id="descuento-line" className="summary-line"><span>Descuento:</span><span id="descuento">{descuento}</span></div>}
                             {(ivaLabel || ivaValue) && <div id="iva-label-line" className="summary-line"><span>IVA ({ivaLabel}):</span><span id="iva-label-value">{ivaValue}</span></div>}
-                            {total && <div id="total-line" className="summary-line total-line"><span>Total:</span><span id="total">{total}</span></div>}
+                                                        {totalDataLines.map((line, index) => (
+                                <div key={index} className="summary-line total-line">
+                                    <span>{line.label}</span>
+                                    <span>{line.value}</span>
+                                </div>
+                            ))}
+                            {total && !totalDataLines.length && <div id="total-line" className="summary-line total-line"><span>Total:</span><span id="total">{total}</span></div>}
                         </div>
                         {nota && <div id="nota-section" className="invoice-note"><strong>Nota:</strong> <span id="nota" dangerouslySetInnerHTML={{ __html: nota }}></span></div>}
                     </div>
