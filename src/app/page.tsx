@@ -63,6 +63,7 @@ const InvoiceContent = () => {
     const [footerInfo, setFooterInfo] = useState('');
     const [printDate, setPrintDate] = useState('');
     const [footerNota, setFooterNota] = useState('');
+    const [sumDataLines, setSumDataLines] = useState<{label: string, value: string}[]>([]);
 
     // --- PDF Sharing/Downloading Logic ---
     const handleShareOrDownload = useCallback(async () => {
@@ -135,6 +136,20 @@ const InvoiceContent = () => {
         setFormaPago(searchParams.get('FormaPago') || '');
         setDeContent(styleContent(searchParams.get('De')));
         setParaContent(styleContent(searchParams.get('Cliente')));
+
+        const sumDataParam = searchParams.get('SumDataLine');
+        if (sumDataParam) {
+            const lines = sumDataParam.split('\n').map(line => {
+                const parts = line.split(':');
+                return {
+                    label: parts[0] ? parts[0].trim() + ':' : '',
+                    value: parts[1] ? parts[1].trim() : ''
+                };
+            }).filter(line => line.label);
+            setSumDataLines(lines);
+        } else {
+            setSumDataLines([]);
+        }
 
         const columnNames = searchParams.getAll('columna');
         setTableHeaders(columnNames);
@@ -252,6 +267,12 @@ const InvoiceContent = () => {
                     </table>
                     <div className="summary-and-notes-container">
                         <div className="invoice-summary">
+                            {sumDataLines.map((line, index) => (
+                                <div key={index} className="summary-line">
+                                    <span>{line.label}</span>
+                                    <span>{line.value}</span>
+                                </div>
+                            ))}
                             {subtotal && <div id="subtotal-line" className="summary-line"><span>Subtotal:</span><span id="subtotal">{subtotal}</span></div>}
                             {descuento && <div id="descuento-line" className="summary-line"><span>Descuento:</span><span id="descuento">{descuento}</span></div>}
                             {(ivaLabel || ivaValue) && <div id="iva-label-line" className="summary-line"><span>IVA ({ivaLabel}):</span><span id="iva-label-value">{ivaValue}</span></div>}
