@@ -41,6 +41,7 @@ const InvoiceContent = () => {
     // ++ NEW: States for background PDF generation
     const [backgroundPdfStatus, setBackgroundPdfStatus] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle');
     const [backgroundPdfUrl, setBackgroundPdfUrl] = useState<string>('');
+    const [isDataLoaded, setIsDataLoaded] = useState(false); // Track if initial data is loaded
     // -- END NEW
 
     const [isShareSupported, setIsShareSupported] = useState(false);
@@ -260,12 +261,18 @@ const InvoiceContent = () => {
             setShowPrintFooter(false);
         }
 
-        // ++ NEW: Trigger background generation
-        if (searchParams.toString()) {
+        // Mark that the initial data loading from URL is complete
+        setIsDataLoaded(true);
+        
+    }, [searchParams]);
+
+    // ++ NEW: Effect to trigger background PDF generation AFTER data is loaded
+    useEffect(() => {
+        // Only trigger generation if data is loaded AND we are not in a print job from the server
+        if (isDataLoaded && searchParams.toString() && !searchParams.has('isPrinting')) {
             handleBackgroundPdfGeneration();
         }
-        // -- END NEW
-    }, [searchParams, handleBackgroundPdfGeneration]);
+    }, [isDataLoaded, searchParams, handleBackgroundPdfGeneration]);
 
     // ++ NEW: Cleanup effect for Blob URL
     useEffect(() => {

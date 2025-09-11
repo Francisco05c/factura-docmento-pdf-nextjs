@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     await page.goto(frontendUrl, {
       // Changed to domcontentloaded for faster loading and to avoid timeouts.
       // If images or styles are missing, 'networkidle2' is a good alternative.
-      waitUntil: 'domcontentloaded',
+            waitUntil: 'networkidle0',
       timeout: 60000 // Aumentamos el timeout a 60 segundos
     });
 
