@@ -132,7 +132,7 @@ const InvoiceContent = () => {
         setBackgroundPdfStatus('generating');
 
         try {
-            console.log(`LOG: Parámetros enviados para generación en segundo plano: ${searchParams.toString()}`);
+            console.log('LOG: Parámetros enviados para generación en segundo plano.');
             
             const response = await fetch('/api/generar-pdf', {
                 method: 'POST',
@@ -278,6 +278,22 @@ const InvoiceContent = () => {
         };
     }, [backgroundPdfUrl]);
     // -- END NEW
+
+    // Effect to scroll to buttons after PDF generation
+    useEffect(() => {
+        if (backgroundPdfStatus === 'ready') {
+            const scrollTo = searchParams.get('scrollTo');
+            if (scrollTo === 'buttons') {
+                const buttonContainer = document.querySelector('.button-container');
+                if (buttonContainer) {
+                    // Adding a small delay to ensure the DOM is fully updated
+                    setTimeout(() => {
+                        buttonContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
+            }
+        }
+    }, [backgroundPdfStatus, searchParams]);
 
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';
