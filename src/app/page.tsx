@@ -37,8 +37,12 @@ interface TableRow { [key: string]: string; }
 
 const InvoiceContent = () => {
     const searchParams = useSearchParams();
-    const [loading, setLoading] = useState(false);
-    const [loadingAction, setLoadingAction] = useState<'download' | 'share' | null>(null);
+    
+    // ++ NEW: States for background PDF generation
+    const [backgroundPdfStatus, setBackgroundPdfStatus] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle');
+    const [backgroundPdfUrl, setBackgroundPdfUrl] = useState<string>('');
+    // -- END NEW
+
     const [isShareSupported, setIsShareSupported] = useState(false);
 
     // --- State Variables ---
@@ -73,55 +77,32 @@ const InvoiceContent = () => {
         }
     }, []);
 
-    const handleDownload = useCallback(async () => {
-        setLoading(true);
-        setLoadingAction('download');
-        try {
-            const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
-            const response = await fetch(apiUrl);
+    const handleDownload = useCallback(() => {
+        if (backgroundPdfStatus !== 'ready' || !backgroundPdfUrl) return;
 
-            if (!response.ok) {
-                throw new Error(`Error al generar el PDF: ${response.statusText}`);
-            }
-
-            const blob = await response.blob();
-            if (blob.type !== 'application/pdf') {
-                throw new Error('La respuesta recibida no es un PDF.');
-            }
-
-            const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
-            downloadFile(blob, pdfFilename);
-
-        } catch (error) {
-            console.error("Error in download process:", error);
-            alert(error instanceof Error ? error.message : String(error));
-        } finally {
-            setLoading(false);
-            setLoadingAction(null);
-        }
-    }, [searchParams]);
+        console.log('LOG: Usando PDF pre-generado en memoria para descargar.');
+        const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
+        
+        const link = document.createElement('a');
+        link.href = backgroundPdfUrl;
+        link.download = pdfFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }, [searchParams, backgroundPdfStatus, backgroundPdfUrl]);
 
     const handleShare = useCallback(async () => {
+        if (backgroundPdfStatus !== 'ready' || !backgroundPdfUrl) return;
+
         if (!navigator.share) {
             alert('La función de compartir no está disponible en este navegador.');
             return;
         }
 
-        setLoading(true);
-        setLoadingAction('share');
+        console.log('LOG: Usando PDF pre-generado en memoria para compartir.');
         try {
-            const apiUrl = `/api/generar-pdf?${searchParams.toString()}`;
-            const response = await fetch(apiUrl);
-
-            if (!response.ok) {
-                throw new Error(`Error al generar el PDF: ${response.statusText}`);
-            }
-
+            const response = await fetch(backgroundPdfUrl);
             const blob = await response.blob();
-            if (blob.type !== 'application/pdf') {
-                throw new Error('La respuesta recibida no es un PDF.');
-            }
-
             const pdfFilename = sanitizeFilename(searchParams.get('filename'), 'factura.pdf');
             const file = new File([blob], pdfFilename, { type: 'application/pdf' });
 
@@ -136,19 +117,53 @@ const InvoiceContent = () => {
             }
 
         } catch (error) {
-            console.error("Error in share process:", error);
-            if (error instanceof Error) {
-                if (error.name !== 'AbortError') {
-                    alert(error.message);
-                }
-            } else {
+            console.error("Error in share process with pre-generated PDF:", error);
+            if (error instanceof Error && error.name !== 'AbortError') {
+                alert(error.message);
+            } else if (!(error instanceof Error)) {
                 alert(String(error));
             }
-        } finally {
-            setLoading(false);
-            setLoadingAction(null);
+        }
+    }, [searchParams, backgroundPdfUrl, backgroundPdfStatus]);
+
+    // ++ NEW: Background PDF Generation Logic
+    const handleBackgroundPdfGeneration = useCallback(async () => {
+        console.log('LOG: Iniciando generación de PDF en segundo plano...');
+        setBackgroundPdfStatus('generating');
+
+        try {
+            console.log(`LOG: Parámetros enviados para generación en segundo plano: ${searchParams.toString()}`);
+            
+            const response = await fetch('/api/generar-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ params: searchParams.toString() }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`LOG: Error en la API al generar PDF en segundo plano. Status: ${response.status}`, errorText);
+                throw new Error(`Error al generar el PDF: ${response.statusText}`);
+            }
+            console.log('LOG: Respuesta de la API para PDF en segundo plano recibida correctamente.');
+
+            const blob = await response.blob();
+            if (blob.type !== 'application/pdf') {
+                console.error('LOG: La respuesta recibida no es un PDF, sino:', blob.type);
+                throw new Error('La respuesta recibida no es un PDF.');
+            }
+
+            const url = URL.createObjectURL(blob);
+            setBackgroundPdfUrl(url);
+            setBackgroundPdfStatus('ready');
+            console.log('LOG: PDF en segundo plano generado y listo en memoria. URL:', url);
+
+        } catch (error) {
+            console.error("LOG: Error durante la generación de PDF en segundo plano:", error);
+            setBackgroundPdfStatus('error');
         }
     }, [searchParams]);
+    // -- END NEW
 
     // Effect to load data from URL params
     useEffect(() => {
@@ -244,7 +259,25 @@ const InvoiceContent = () => {
         } else {
             setShowPrintFooter(false);
         }
-    }, [searchParams]);
+
+        // ++ NEW: Trigger background generation
+        if (searchParams.toString()) {
+            handleBackgroundPdfGeneration();
+        }
+        // -- END NEW
+    }, [searchParams, handleBackgroundPdfGeneration]);
+
+    // ++ NEW: Cleanup effect for Blob URL
+    useEffect(() => {
+        // This function will be called when the component unmounts
+        return () => {
+            if (backgroundPdfUrl) {
+                console.log('LOG: Limpiando URL del PDF en memoria para evitar fugas:', backgroundPdfUrl);
+                URL.revokeObjectURL(backgroundPdfUrl);
+            }
+        };
+    }, [backgroundPdfUrl]);
+    // -- END NEW
 
     const getColumnAlignment = (index: number, header: string) => {
         if (index === 0 || ['producto', 'articulos'].includes(header.toLowerCase())) return 'text-left';
@@ -255,11 +288,6 @@ const InvoiceContent = () => {
 
     return (
         <>
-            <div id="loading-overlay" className={loading ? '' : 'hidden'}>
-                <div className="spinner"></div>
-                <p>{loadingAction === 'share' ? 'Preparando para compartir...' : 'Generando PDF, por favor espere...'}</p>
-            </div>
-
             {/* Print-only headers (conditionally rendered by CSS) */}
             <div id="print-header-azul" className="print-only"></div>
             
@@ -330,12 +358,26 @@ const InvoiceContent = () => {
             </div>
 
             <div className="button-container no-print">
-                <button id="download-pdf-btn" onClick={handleDownload} disabled={loading}>
-                    {loading && loadingAction === 'download' ? 'Generando...' : 'Descargar'}
+                <button id="download-pdf-btn" onClick={handleDownload} disabled={backgroundPdfStatus !== 'ready'}>
+                    {
+                        {
+                            idle: 'Preparando...',
+                            generating: 'Generando...',
+                            ready: 'Descargar',
+                            error: 'Error'
+                        }[backgroundPdfStatus] || 'Descargar'
+                    }
                 </button>
                 {isShareSupported && (
-                    <button id="share-pdf-btn" onClick={handleShare} disabled={loading}>
-                        {loading && loadingAction === 'share' ? 'Preparando...' : 'Compartir'}
+                    <button id="share-pdf-btn" onClick={handleShare} disabled={backgroundPdfStatus !== 'ready'}>
+                        {
+                            {
+                                idle: 'Preparando...',
+                                generating: 'Generando...',
+                                ready: 'Compartir',
+                                error: 'Error'
+                            }[backgroundPdfStatus] || 'Compartir'
+                        }
                     </button>
                 )}
             </div>
